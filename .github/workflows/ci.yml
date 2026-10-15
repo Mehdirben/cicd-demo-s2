@@ -4,6 +4,10 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,4 +30,50 @@ jobs:
       - name: Lancer les tests
         run: npm test
 
-      
+      - name: Construire l'image Docker
+        run: docker build -t cicd-demo-s2 .
+
+      - name : Demarer le conteneur docker
+        run : docker run -d -p 3000:3000 --name cicd-demo cicd-demo-s2
+
+      - name : Attendre l´application
+        run : | 
+          for i in {1..10}; do
+            if curl --fail http://localhost:3000/api/health; then 
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name : Vérifie le calcule TTC 
+        run: |
+          curl --fail "http://localhost:3000/api/calcul/ttc?prix=100&tva=20" | grep "120"
+
+      - name : Netoyer le conteneur
+        if : always()
+        run : docker rm -f cicd-demo || true
+
+      - name: Preparer le nom de l'image
+        run: |
+          REPO="${GITHUB_REPOSITORY,,}"
+          IMAGE_NAME="ghcr.io/${REPO}"
+          echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
+
+      - name: Se connecter au registre
+        uses: actions/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tagger l'image
+        run: |
+          docker tag cicd-demo-s2 "$IMAGE_NAME:${GITHUB_SHA}"
+          docker tag cicd-demo-s2 "$IMAGE_NAME:latest"
+          docker images ls "$IMAGE_NAME"
+
+      - name: Publier dans GHCR
+        run: |
+          docker push "$IMAGE_NAME:${GITHUB_SHA}"
+          docker push "$IMAGE_NAME:latest"
