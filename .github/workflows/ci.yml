@@ -86,3 +86,12 @@ jobs:
       contents: read
       deployments: read
     steps:
+      - name: Reconstruire la reference
+        run: |
+          REPO="${echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          echo "IMAGE_NAME=ghcr.io/$REPO" >> $GITHUB_ENV
+
+      - name: Controler la reference
+        run: |
+          test -n "${IMAGE_NAME}" 
+          echo "IMAGE_NAME=$IMAGE_NAME"
