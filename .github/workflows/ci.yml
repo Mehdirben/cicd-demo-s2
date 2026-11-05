@@ -77,3 +77,12 @@ jobs:
         run: |
           docker push "$IMAGE_NAME:${GITHUB_SHA}"
           docker push "$IMAGE_NAME:latest"
+        
+  deploy_staging:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+      deployments: read
+    steps:
